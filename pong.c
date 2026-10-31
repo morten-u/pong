@@ -53,6 +53,7 @@ void ballDraw();
 void ballUpdate(float dt);
 void ballLaunch();
 void ballReset();
+void ballWallBounce();
 
 
 /****************************************************************
@@ -86,6 +87,7 @@ int main() {
 
 
         // update
+        ballWallBounce();
         ballUpdate(delta_time);
 
 
@@ -245,4 +247,23 @@ void ballLaunch() {
 
 void ballReset() {
     ballInit();
+}
+
+void ballWallBounce() {
+
+    if (ball.x <= 0 + ball.radius) {
+        ball.x = ball.radius;
+        ball.velocity_x *= -1;
+    } else if (ball.x >= WIDTH - ball.radius) {
+        ball.x = WIDTH - ball.radius;
+        ball.velocity_x *= -1;
+    }
+
+    if (ball.y <= 0 + ball.radius) {
+        ball.y = ball.radius;
+        ball.velocity_y *= -1;
+    } else if (ball.y >= HEIGHT - ball.radius) {
+        ball.y = HEIGHT - ball.radius;
+        ball.velocity_y *= -1;
+    }
 }
