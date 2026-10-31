@@ -1,5 +1,4 @@
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_rect.h>
 #include <stdlib.h>
 
 /****************************************************************
@@ -13,9 +12,14 @@
 
 typedef struct {
     bool running;
+    const bool *keys;
+
+    Uint64 now_time;
+    Uint64 last_time;
+
     SDL_Window *window;
     SDL_Renderer *renderer;
-    const bool *keys;
+
     SDL_Texture *ball_texture;
 } AppState;
 
@@ -25,12 +29,14 @@ void cleanup();
 void pollEvents();
 void clearScreen(SDL_Color *color);
 void present();
+float frameTime();
 
 
 /****************************************************************
  *                          BALL                                *
  ****************************************************************/
 #define BALL_RADIUS 15
+#define BALL_SPEED 450
 
 typedef struct {
     float radius;
@@ -38,11 +44,15 @@ typedef struct {
     float y;
     float velocity_x;
     float velocity_y;
+    bool in_play;
 } Ball;
 Ball ball;
 
 void ballInit();
 void ballDraw();
+void ballUpdate(float dt);
+void ballLaunch();
+void ballReset();
 
 
 /****************************************************************
@@ -63,8 +73,23 @@ int main() {
     ballInit();
 
     while (app.running) {
-        pollEvents();
+        float delta_time = frameTime();
 
+        // input
+        pollEvents();
+        if (app.keys[SDL_SCANCODE_ESCAPE]) break;
+
+        if (!ball.in_play)
+            if (app.keys[SDL_SCANCODE_SPACE]) ballLaunch();
+
+        if (app.keys[SDL_SCANCODE_BACKSPACE]) ballReset();
+
+
+        // update
+        ballUpdate(delta_time);
+
+
+        // draw
         clearScreen(&bg_color);
 
         ballDraw();
@@ -119,6 +144,10 @@ bool init() {
         return false;
     }
 
+    app.now_time = SDL_GetPerformanceCounter();
+    app.last_time = app.now_time;
+
+    SDL_srand(0);
 
     return true;
 }
@@ -155,6 +184,14 @@ void present() {
     SDL_RenderPresent(app.renderer);
 }
 
+float frameTime() {
+    app.now_time = SDL_GetPerformanceCounter();
+    float frame_time = (float)(app.now_time - app.last_time) / (float)SDL_GetPerformanceFrequency();
+    app.last_time = app.now_time;
+
+    return frame_time;
+}
+
 /****************************************************************
  *                          BALL                                *
  ****************************************************************/
@@ -167,6 +204,8 @@ void ballInit() {
 
     ball.velocity_x = 0;
     ball.velocity_y = 0;
+
+    ball.in_play = false;
 }
 
 void ballDraw() {
@@ -185,4 +224,25 @@ void ballDraw() {
     };
 
     SDL_RenderTexture(app.renderer, app.ball_texture, &src, &dst);
+}
+
+void ballUpdate(float dt) {
+    ball.x += ball.velocity_x * dt;
+    ball.y += ball.velocity_y * dt;
+
+    ball.in_play = ball.velocity_x != 0;
+}
+
+void ballLaunch() {
+    ball.velocity_x = BALL_SPEED;
+
+    // 50/50 chance of launching left or right
+    if (SDL_rand(100) > 50) ball.velocity_x *= -1;
+
+    ball.velocity_y = SDL_rand(200);
+    if (SDL_rand(100) > 50) ball.velocity_y *= -1;
+}
+
+void ballReset() {
+    ballInit();
 }
