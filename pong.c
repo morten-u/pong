@@ -76,6 +76,8 @@ void paddleDraw();
 void paddleMoveUp(PaddlePos pos, float dt);
 void paddleMoveDown(PaddlePos pos, float dt);
 void paddleCheckBounds();
+bool paddleBallCollision(PaddlePos pos);
+void paddleBallDeflect(PaddlePos pos);
 
 /****************************************************************
  *                          MAIN                                *
@@ -113,6 +115,10 @@ int main() {
         // update
         ballWallBounce();
         ballUpdate(delta_time);
+
+        if (paddleBallCollision(PADDLE_LEFT)) {
+            paddleBallDeflect(PADDLE_LEFT);
+        }
 
         paddleCheckBounds();
 
@@ -267,7 +273,7 @@ void ballLaunch() {
     // 50/50 chance of launching left or right
     if (SDL_rand(100) > 50) ball.velocity_x *= -1;
 
-    ball.velocity_y = SDL_rand(200);
+    ball.velocity_y = SDL_rand(300);
     if (SDL_rand(100) > 50) ball.velocity_y *= -1;
 }
 
@@ -331,4 +337,55 @@ void paddleCheckBounds() {
         left_paddle.y = 0;
     else if (left_paddle.y >= HEIGHT - left_paddle.h)
         left_paddle.y = HEIGHT - left_paddle.h;
+}
+
+float clamp(float n, float min, float max) {
+    if (n < min) return min;
+
+    if (n > max) return max;
+
+    return n;
+}
+
+bool paddleBallCollision(PaddlePos pos) {
+
+    if (ball.velocity_x == 0) return false;
+
+    if (pos == PADDLE_LEFT) { // Moving left
+
+        if (ball.velocity_x > 0) return false;
+
+        float closest_x = clamp(ball.x, left_paddle.x, left_paddle.x + left_paddle.w);
+        float closest_y = clamp(ball.y, left_paddle.y, left_paddle.y + left_paddle.h);
+
+        float dist_x = ball.x - closest_x;
+        float dist_y = ball.y - closest_y;
+
+        float dist_squared = (dist_x * dist_x) + (dist_y * dist_y);
+
+        return dist_squared < (ball.radius * ball.radius);
+    }
+
+    return false;
+}
+
+void paddleBallDeflect(PaddlePos pos) {
+
+    if (pos == PADDLE_LEFT) {
+        ball.x = (left_paddle.x + left_paddle.w) + ball.radius;
+        ball.velocity_x *= -1;
+    }
+
+
+    float center = left_paddle.y + left_paddle.h / 2.0f;
+    float hit_pos = ball.y - center;
+
+    float hit_pos_normalized = hit_pos / (left_paddle.h / 2.0f);
+
+    if (hit_pos_normalized < -1.0f)
+        hit_pos_normalized = -1.0f;
+    else if (hit_pos_normalized > 1.0f)
+        hit_pos_normalized = 1.0f;
+
+    ball.velocity_y = hit_pos_normalized * 300;
 }
