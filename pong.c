@@ -57,6 +57,27 @@ void ballWallBounce();
 
 
 /****************************************************************
+ *                          PADDLE                              *
+ ****************************************************************/
+#define PADDLE_WALL_OFFSET 10
+#define PADDLE_WIDTH 25
+#define PADDLE_HEIGHT 125
+#define PADDLE_SPEED 400
+
+typedef enum {
+    PADDLE_LEFT,
+    PADDLE_RIGHT
+} PaddlePos;
+
+SDL_FRect left_paddle;
+
+void paddleInit(PaddlePos pos);
+void paddleDraw();
+void paddleMoveUp(PaddlePos pos, float dt);
+void paddleMoveDown(PaddlePos pos, float dt);
+void paddleCheckBounds();
+
+/****************************************************************
  *                          MAIN                                *
  ****************************************************************/
 int main() {
@@ -72,6 +93,7 @@ int main() {
     };
 
     ballInit();
+    paddleInit(PADDLE_LEFT);
 
     while (app.running) {
         float delta_time = frameTime();
@@ -85,16 +107,20 @@ int main() {
 
         if (app.keys[SDL_SCANCODE_BACKSPACE]) ballReset();
 
+        if (app.keys[SDL_SCANCODE_DOWN]) paddleMoveDown(PADDLE_LEFT, delta_time);
+        if (app.keys[SDL_SCANCODE_UP])   paddleMoveUp(PADDLE_LEFT, delta_time);
 
         // update
         ballWallBounce();
         ballUpdate(delta_time);
 
+        paddleCheckBounds();
 
         // draw
         clearScreen(&bg_color);
 
         ballDraw();
+        paddleDraw();
 
         present();
     }
@@ -266,4 +292,43 @@ void ballWallBounce() {
         ball.y = HEIGHT - ball.radius;
         ball.velocity_y *= -1;
     }
+}
+
+/****************************************************************
+ *                          PADDLE                              *
+ ****************************************************************/
+
+
+void paddleInit(PaddlePos pos) {
+
+    if (pos == PADDLE_LEFT) {
+
+        left_paddle.w = PADDLE_WIDTH;
+        left_paddle.h = PADDLE_HEIGHT;
+
+        left_paddle.x = PADDLE_WALL_OFFSET;
+        left_paddle.y = (HEIGHT / 2.0f) - (left_paddle.h / 2.0f);
+    }
+}
+
+void paddleDraw() {
+    SDL_SetRenderDrawColor(app.renderer, 255, 255, 255, 255);
+    SDL_RenderFillRect(app.renderer, &left_paddle);
+}
+
+void paddleMoveUp(PaddlePos pos, float dt) {
+    if (pos == PADDLE_LEFT)
+        left_paddle.y -= PADDLE_SPEED * dt;
+}
+
+void paddleMoveDown(PaddlePos pos, float dt) {
+    if (pos == PADDLE_LEFT)
+        left_paddle.y += PADDLE_SPEED * dt;
+}
+
+void paddleCheckBounds() {
+    if (left_paddle.y <= 0)
+        left_paddle.y = 0;
+    else if (left_paddle.y >= HEIGHT - left_paddle.h)
+        left_paddle.y = HEIGHT - left_paddle.h;
 }
