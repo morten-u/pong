@@ -70,8 +70,9 @@ typedef enum {
 } PaddlePos;
 
 SDL_FRect left_paddle;
+SDL_FRect right_paddle;
 
-void paddleInit(PaddlePos pos);
+void paddleInit();
 void paddleDraw();
 void paddleMoveUp(PaddlePos pos, float dt);
 void paddleMoveDown(PaddlePos pos, float dt);
@@ -95,7 +96,7 @@ int main() {
     };
 
     ballInit();
-    paddleInit(PADDLE_LEFT);
+    paddleInit();
 
     while (app.running) {
         float delta_time = frameTime();
@@ -109,18 +110,28 @@ int main() {
 
         if (app.keys[SDL_SCANCODE_BACKSPACE]) ballReset();
 
-        if (app.keys[SDL_SCANCODE_DOWN]) paddleMoveDown(PADDLE_LEFT, delta_time);
-        if (app.keys[SDL_SCANCODE_UP])   paddleMoveUp(PADDLE_LEFT, delta_time);
+        if (app.keys[SDL_SCANCODE_DOWN])
+            paddleMoveDown(PADDLE_LEFT, delta_time);
+        else if (app.keys[SDL_SCANCODE_S])
+            paddleMoveDown(PADDLE_LEFT, delta_time);
+
+        if (app.keys[SDL_SCANCODE_UP])
+            paddleMoveUp(PADDLE_LEFT, delta_time);
+        else if (app.keys[SDL_SCANCODE_W])
+            paddleMoveUp(PADDLE_LEFT, delta_time);
 
         // update
-        ballWallBounce();
-        ballUpdate(delta_time);
 
         if (paddleBallCollision(PADDLE_LEFT)) {
             paddleBallDeflect(PADDLE_LEFT);
+        } else if (paddleBallCollision(PADDLE_RIGHT)) {
+            paddleBallDeflect(PADDLE_RIGHT);
         }
 
+        ballUpdate(delta_time);
+
         paddleCheckBounds();
+        ballWallBounce();
 
         // draw
         clearScreen(&bg_color);
@@ -305,21 +316,27 @@ void ballWallBounce() {
  ****************************************************************/
 
 
-void paddleInit(PaddlePos pos) {
-
-    if (pos == PADDLE_LEFT) {
+void paddleInit() {
 
         left_paddle.w = PADDLE_WIDTH;
         left_paddle.h = PADDLE_HEIGHT;
 
         left_paddle.x = PADDLE_WALL_OFFSET;
         left_paddle.y = (HEIGHT / 2.0f) - (left_paddle.h / 2.0f);
-    }
+
+
+        right_paddle.w = PADDLE_WIDTH;
+        right_paddle.h = PADDLE_HEIGHT;
+
+        right_paddle.x = (WIDTH - PADDLE_WIDTH) - PADDLE_WALL_OFFSET;
+        right_paddle.y = (HEIGHT / 2.0f) - (PADDLE_HEIGHT / 2.0f);
 }
 
 void paddleDraw() {
     SDL_SetRenderDrawColor(app.renderer, 255, 255, 255, 255);
     SDL_RenderFillRect(app.renderer, &left_paddle);
+    SDL_RenderFillRect(app.renderer, &right_paddle);
+
 }
 
 void paddleMoveUp(PaddlePos pos, float dt) {
@@ -337,6 +354,11 @@ void paddleCheckBounds() {
         left_paddle.y = 0;
     else if (left_paddle.y >= HEIGHT - left_paddle.h)
         left_paddle.y = HEIGHT - left_paddle.h;
+
+    if (right_paddle.y <= 0)
+        right_paddle.y = 0;
+    else if (right_paddle.y >= HEIGHT - right_paddle.h)
+        right_paddle.y = HEIGHT - right_paddle.h;
 }
 
 float clamp(float n, float min, float max) {
@@ -351,12 +373,20 @@ bool paddleBallCollision(PaddlePos pos) {
 
     if (ball.velocity_x == 0) return false;
 
+    float closest_x;
+    float closest_y;
     if (pos == PADDLE_LEFT) { // Moving left
 
         if (ball.velocity_x > 0) return false;
 
-        float closest_x = clamp(ball.x, left_paddle.x, left_paddle.x + left_paddle.w);
-        float closest_y = clamp(ball.y, left_paddle.y, left_paddle.y + left_paddle.h);
+        closest_x = clamp(ball.x, left_paddle.x, left_paddle.x + left_paddle.w);
+        closest_y = clamp(ball.y, left_paddle.y, left_paddle.y + left_paddle.h);
+    } else {
+        if (ball.velocity_x < 0) return false;
+
+        closest_x = clamp(ball.x, right_paddle.x, right_paddle.x + right_paddle.w);
+        closest_y = clamp(ball.y, right_paddle.y, right_paddle.y + right_paddle.h);
+    }
 
         float dist_x = ball.x - closest_x;
         float dist_y = ball.y - closest_y;
@@ -364,18 +394,18 @@ bool paddleBallCollision(PaddlePos pos) {
         float dist_squared = (dist_x * dist_x) + (dist_y * dist_y);
 
         return dist_squared < (ball.radius * ball.radius);
-    }
 
     return false;
 }
 
 void paddleBallDeflect(PaddlePos pos) {
 
-    if (pos == PADDLE_LEFT) {
+    if (pos == PADDLE_LEFT)
         ball.x = (left_paddle.x + left_paddle.w) + ball.radius;
-        ball.velocity_x *= -1;
-    }
+    else
+        ball.x = right_paddle.x - ball.radius;
 
+    ball.velocity_x *= -1;
 
     float center = left_paddle.y + left_paddle.h / 2.0f;
     float hit_pos = ball.y - center;
