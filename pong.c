@@ -63,6 +63,7 @@ void ballWallBounce();
 #define PADDLE_WIDTH 25
 #define PADDLE_HEIGHT 125
 #define PADDLE_SPEED 400
+#define AI_DEADZONE 8.0f
 
 typedef enum {
     PADDLE_LEFT,
@@ -72,6 +73,9 @@ typedef enum {
 SDL_FRect left_paddle;
 SDL_FRect right_paddle;
 
+bool ai_has_y;
+float ai_target_y;
+
 void paddleInit();
 void paddleDraw();
 void paddleMoveUp(PaddlePos pos, float dt);
@@ -79,6 +83,7 @@ void paddleMoveDown(PaddlePos pos, float dt);
 void paddleCheckBounds();
 bool paddleBallCollision(PaddlePos pos);
 void paddleBallDeflect(PaddlePos pos);
+void paddleAiUpdate(float dt);
 
 /****************************************************************
  *                          MAIN                                *
@@ -128,6 +133,7 @@ int main() {
             paddleBallDeflect(PADDLE_RIGHT);
         }
 
+        paddleAiUpdate(delta_time);
         ballUpdate(delta_time);
 
         paddleCheckBounds();
@@ -330,6 +336,9 @@ void paddleInit() {
 
         right_paddle.x = (WIDTH - PADDLE_WIDTH) - PADDLE_WALL_OFFSET;
         right_paddle.y = (HEIGHT / 2.0f) - (PADDLE_HEIGHT / 2.0f);
+
+        ai_has_y = false;
+        ai_target_y = 0;
 }
 
 void paddleDraw() {
@@ -342,11 +351,15 @@ void paddleDraw() {
 void paddleMoveUp(PaddlePos pos, float dt) {
     if (pos == PADDLE_LEFT)
         left_paddle.y -= PADDLE_SPEED * dt;
+    else
+        right_paddle.y -= PADDLE_SPEED * dt;
 }
 
 void paddleMoveDown(PaddlePos pos, float dt) {
     if (pos == PADDLE_LEFT)
         left_paddle.y += PADDLE_SPEED * dt;
+    else
+        right_paddle.y += PADDLE_SPEED * dt;
 }
 
 void paddleCheckBounds() {
@@ -400,17 +413,20 @@ bool paddleBallCollision(PaddlePos pos) {
 
 void paddleBallDeflect(PaddlePos pos) {
 
+    SDL_FRect *paddle = (pos == PADDLE_LEFT) ? &left_paddle : &right_paddle;
+
     if (pos == PADDLE_LEFT)
-        ball.x = (left_paddle.x + left_paddle.w) + ball.radius;
+        ball.x = (paddle->x + paddle->w) + ball.radius;
     else
-        ball.x = right_paddle.x - ball.radius;
+        ball.x = paddle->x - ball.radius;
 
     ball.velocity_x *= -1;
 
-    float center = left_paddle.y + left_paddle.h / 2.0f;
+    float center = paddle->y + (paddle->h / 2.0f);
     float hit_pos = ball.y - center;
 
-    float hit_pos_normalized = hit_pos / (left_paddle.h / 2.0f);
+
+    float hit_pos_normalized = hit_pos / (paddle->h / 2.0f);
 
     if (hit_pos_normalized < -1.0f)
         hit_pos_normalized = -1.0f;
@@ -418,4 +434,50 @@ void paddleBallDeflect(PaddlePos pos) {
         hit_pos_normalized = 1.0f;
 
     ball.velocity_y = hit_pos_normalized * 300;
+}
+
+void paddleAiUpdate(float dt) {
+
+    float center_y = right_paddle.y + (right_paddle.h / 2.0f);
+
+    if (ball.velocity_x <= 0) {
+        float center = HEIGHT / 2.0f;
+
+        float center_offset = center - center_y;
+
+        if (center_offset > AI_DEADZONE)
+            paddleMoveDown(PADDLE_RIGHT, dt);
+        else if (center_offset < -AI_DEADZONE)
+            paddleMoveUp(PADDLE_RIGHT, dt);
+
+        ai_has_y = false;
+        return;
+    }
+
+    if (!ai_has_y) {
+        float frame_x = ball.velocity_x * dt;
+        float frame_y = ball.velocity_y * dt;
+
+        float target_x = ball.x;
+        float target_y = ball.y;
+
+        while (target_x < WIDTH) {
+            target_x += frame_x;
+            target_y += frame_y;
+
+            if (target_y <= 0 || target_y >= HEIGHT)
+                frame_y *= -1;
+
+        }
+
+        ai_has_y = true;
+        ai_target_y = target_y;
+    }
+
+    float target_offset = ai_target_y - center_y;
+
+    if (target_offset > AI_DEADZONE)
+        paddleMoveDown(PADDLE_RIGHT, dt);
+    else if (target_offset < -AI_DEADZONE)
+        paddleMoveUp(PADDLE_RIGHT, dt);
 }
