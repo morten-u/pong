@@ -30,6 +30,7 @@ void pollEvents();
 void clearScreen(SDL_Color *color);
 void present();
 float frameTime();
+void drawCenterLine();
 
 
 /****************************************************************
@@ -142,6 +143,8 @@ int main() {
         // draw
         clearScreen(&bg_color);
 
+        drawCenterLine();
+
         ballDraw();
         paddleDraw();
 
@@ -243,6 +246,25 @@ float frameTime() {
     return frame_time;
 }
 
+void drawCenterLine() {
+    const float line_len = 20.0f;
+    const float line_thickness = 4.0f;
+
+    SDL_FRect line = {
+        .x = (WIDTH / 2.0f) - (line_thickness / 2.0f),
+        .y = 0,
+        .w = line_thickness,
+        .h = line_len
+    };
+
+    SDL_SetRenderDrawColor(app.renderer, 255, 255, 255, 255);
+
+    for (int i = 0; i < HEIGHT; i += 30) {
+        SDL_RenderFillRect(app.renderer, &line);
+        line.y += 30;
+    }
+}
+
 /****************************************************************
  *                          BALL                                *
  ****************************************************************/
@@ -250,8 +272,8 @@ float frameTime() {
 void ballInit() {
     ball.radius = BALL_RADIUS;
 
-    ball.x = (WIDTH / 2.0f) - ball.radius;
-    ball.y = (HEIGHT / 2.0f) - ball.radius;
+    ball.x = (WIDTH / 2.0f);
+    ball.y = (HEIGHT / 2.0f);
 
     ball.velocity_x = 0;
     ball.velocity_y = 0;
@@ -388,7 +410,7 @@ bool paddleBallCollision(PaddlePos pos) {
 
     float closest_x;
     float closest_y;
-    if (pos == PADDLE_LEFT) { // Moving left
+    if (pos == PADDLE_LEFT) {
 
         if (ball.velocity_x > 0) return false;
 
