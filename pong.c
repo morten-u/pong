@@ -12,6 +12,9 @@
 
 typedef struct {
     bool running;
+    int left_score;
+    int right_score;
+
     const bool *keys;
 
     Uint64 now_time;
@@ -55,6 +58,8 @@ void ballUpdate(float dt);
 void ballLaunch();
 void ballReset();
 void ballWallBounce();
+bool ballOutLeft();
+bool ballOutRight();
 
 
 /****************************************************************
@@ -65,6 +70,7 @@ void ballWallBounce();
 #define PADDLE_HEIGHT 125
 #define PADDLE_SPEED 400
 #define AI_DEADZONE 8.0f
+#define AI_INACCURACY 95.0f
 
 typedef enum {
     PADDLE_LEFT,
@@ -116,6 +122,8 @@ int main() {
 
         if (app.keys[SDL_SCANCODE_BACKSPACE]) ballReset();
 
+        if (app.keys[SDL_SCANCODE_RETURN]) SDL_Log("Score Left: %d Score Right: %d\n", app.left_score, app.right_score);
+
         if (app.keys[SDL_SCANCODE_DOWN])
             paddleMoveDown(PADDLE_LEFT, delta_time);
         else if (app.keys[SDL_SCANCODE_S])
@@ -139,6 +147,14 @@ int main() {
 
         paddleCheckBounds();
         ballWallBounce();
+
+        if (ballOutLeft()) {
+            ballReset();
+            app.right_score++;
+        } else if (ballOutRight()) {
+            ballReset();
+            app.left_score++;
+        }
 
         // draw
         clearScreen(&bg_color);
@@ -164,6 +180,8 @@ bool init() {
     app.renderer = NULL;
     app.ball_texture = NULL;
     app.running = true;
+    app.left_score = 0;
+    app.right_score = 0;
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("Error: Failed to initialize SDL3: %s\n", SDL_GetError());
@@ -320,15 +338,17 @@ void ballReset() {
     ballInit();
 }
 
+
+bool ballOutLeft() {
+    return ball.x <= 0 + ball.radius;
+}
+
+bool ballOutRight() {
+    return ball.x >= WIDTH - ball.radius;
+}
+
 void ballWallBounce() {
 
-    if (ball.x <= 0 + ball.radius) {
-        ball.x = ball.radius;
-        ball.velocity_x *= -1;
-    } else if (ball.x >= WIDTH - ball.radius) {
-        ball.x = WIDTH - ball.radius;
-        ball.velocity_x *= -1;
-    }
 
     if (ball.y <= 0 + ball.radius) {
         ball.y = ball.radius;
@@ -458,6 +478,17 @@ void paddleBallDeflect(PaddlePos pos) {
     ball.velocity_y = hit_pos_normalized * 300;
 }
 
+int inaccuracy() {
+
+
+    int miss_offset = SDL_rand(AI_INACCURACY);
+
+    if (SDL_rand(100) > 50)
+        miss_offset *= -1;
+
+    return miss_offset;
+}
+
 void paddleAiUpdate(float dt) {
 
     float center_y = right_paddle.y + (right_paddle.h / 2.0f);
@@ -493,6 +524,7 @@ void paddleAiUpdate(float dt) {
         }
 
         ai_has_y = true;
+        target_y += inaccuracy();
         ai_target_y = target_y;
     }
 
